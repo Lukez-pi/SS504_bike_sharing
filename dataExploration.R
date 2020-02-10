@@ -1,10 +1,24 @@
 source("~/SS504_bike_sharing/dataCleaning.R")
 
-# takes a long time to run
-#pairs(~cnt + t1 + t2 + hum + wind_speed + year + month + day + hour, data = bike)
-print(cor(bike[,c(-6, -7, -8, -9)]),3)
+# Subsample 1000 rows to make things run faster
+sbike <- bike[sample(17414, 1000),]
 
-lm0 <- lm(cnt ~ t1, bike)
-lm1 <- lm(cnt ~ t1 + t2, bike)
+hol_sbike <- filter(sbike, is_holiday==1)
+
+# Notes:
+# 8,643 observations in 2015
+# 8,699 in 2016
+# 72 in 2017
+
+pairs(~cnt + t1 + t2 + hum + wind_speed + year + month + day + hour, data = sbike)
+# Correlations without categorical variables
+print(cor(sbike[,c(-6, -7, -8, -9)]),3)
+
+# RSS is massive for both linear models
+lm0 <- lm(cnt ~ t1, sbike)
+lm1 <- lm(cnt ~ t1 + t2, sbike)
 
 anova(lm0, lm1)
+
+plot(sbike$hour, sbike$cnt)
+plot(hol_sbike$hour, hol_sbike$cnt)
