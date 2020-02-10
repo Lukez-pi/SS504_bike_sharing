@@ -21,3 +21,9 @@ Metadata:
 - 10 = rain with thunderstorm
 - 26 = snowfall
 - 94 = Freezing Fog
+
+
+Notes:
+- 8,643 observations in 2015
+- 8,699 in 2016
+- 72 in 2017
