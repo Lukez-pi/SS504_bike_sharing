@@ -25,3 +25,10 @@ bike <- bike %>% mutate(year = as.numeric(format(date, "%Y")),
                         day = as.numeric(format(date, "%d")),
                         hour = as.numeric(hours(time))) %>% select(c(-1,-2))
 
+# Data splitting
+# set seed to always generate same random numbers
+set.seed(123)
+smp_siz <- floor(0.5*nrow(bike))
+train_ind <- sample(seq_len(nrow(bike)),size = smp_siz)
+train <- Smarket[train_ind,]
+test <- Smarket[-train_ind,]
