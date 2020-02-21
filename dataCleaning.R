@@ -10,11 +10,6 @@ bike = separate(bike, timestamp, into = c("date", "time"), sep=" ")
 bike$date <- as.Date(bike$date)
 bike$time <- chron(times. = bike$time)
 
-# Categorical predictors as factors
-# Should this also be done to binary predictors (is_holiday, is_weekend)?
-bike$weather_code <- as.factor(bike$weather_code)
-bike$season <- as.factor(bike$season)
-
 # Extract year, month, day, hour from date/time variables
 # Note: the finest time resolution we have is hour. All minutes/seconds are "00". 
 # If curious, run below:
@@ -23,7 +18,21 @@ bike$season <- as.factor(bike$season)
 bike <- bike %>% mutate(year = as.numeric(format(date, "%Y")), 
                         month = as.numeric(format(date, "%m")),
                         day = as.numeric(format(date, "%d")),
-                        hour = as.numeric(hours(time))) %>% select(c(-1,-2))
+                        hour = as.numeric(hours(time)),
+                        weekday = weekdays(date)) %>% select(c(-1,-2))
+
+# Take out 2017 to have fewer factors?
+bike <- bike %>% filter(year != 2017)
+
+# Categorical predictors as factors
+bike[,c("weather_code", "season", "is_holiday", "is_weekend", 
+        "year", "month", "day", "hour", "weekday")] <- lapply(bike[,c("weather_code", "season", "is_holiday", 
+                                                                         "is_weekend", "year", "month", "day", "hour", "weekday")], factor)
+#bike %>% group_by(weekday) %>% summarise(mean(cnt))
+# Make vars:
+# day of week (monday, tuesday)
+#is.sunday
+
 
 # Data splitting
 # set seed to always generate same random numbers
