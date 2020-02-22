@@ -1,0 +1,51 @@
+---
+title: "Project"
+output: html_document
+---
+## Loading data and cleaning
+```{r}
+DIRECTORY = "~/Desktop/SS504_bike_sharing/london_merged.csv" # Change this to your file!
+bike = read.csv(DIRECTORY)
+bike = separate(bike, timestamp, into = c("date", "time"), sep=" ")
+bike$date <- as.Date(bike$date)
+bike$time <- chron(times. = bike$time)
+
+# Categorical predictors as factors
+# Should this also be done to binary predictors (is_holiday, is_weekend)?
+bike$weather_code <- as.factor(bike$weather_code)
+bike$season <- as.factor(bike$season)
+
+# Extract year, month, day, hour from date/time variables
+# Note: the finest time resolution we have is hour. All minutes/seconds are "00". 
+# If curious, run below:
+# unique(minutes(bike$time))
+# unique(seconds(bike$time))
+bike <- bike %>% mutate(year = as.numeric(format(date, "%Y")), 
+                        month = as.numeric(format(date, "%m")),
+                        day = as.numeric(format(date, "%d")),
+                        hour = as.numeric(hours(time))) %>% select(c(-1,-2))
+data = bike
+data$year = as.factor(data$year)
+data$month = as.factor(data$month)
+data$day = as.factor(data$day)
+data$hour = as.factor(data$hour)
+#head(data)
+data$work = as.factor(data$is_holiday + data$is_weekend)
+data = subset(data, select=-c(is_holiday, is_weekend))
+head(data)
+```
+
+## Colinearity
+```{r}
+lm1 = lm(cnt~. ,data=data)
+par(mfrow=c(2,2))
+plot(lm1, which=c(1,2,3,4))
+vif(lm1)[vif(lm1)>10]
+data = subset(data, select=-c(t1))
+```
+This suggests us to remove t1. 
+
+```{r}
+res_subset = regsubsets(cnt~. ,data=data, really.big=T)
+```
+
