@@ -4,9 +4,19 @@ output: html_document
 ---
 ## Loading data and cleaning
 ```{r}
+library(dplyr)
+library(faraway)
+library(leaps)
+library(corrplot)
+library(MASS)
+library(tidyr)
+library(stringr)
+library(chron)
 DIRECTORY = "~/Desktop/SS504_bike_sharing/london_merged.csv" # Change this to your file!
 bike = read.csv(DIRECTORY)
 bike = separate(bike, timestamp, into = c("date", "time"), sep=" ")
+
+# Convert date/time variables to datetime/chron objects
 bike$date <- as.Date(bike$date)
 bike$time <- chron(times. = bike$time)
 
@@ -23,7 +33,7 @@ bike$season <- as.factor(bike$season)
 bike <- bike %>% mutate(year = as.numeric(format(date, "%Y")), 
                         month = as.numeric(format(date, "%m")),
                         day = as.numeric(format(date, "%d")),
-                        hour = as.numeric(hours(time))) %>% select(c(-1,-2))
+                        hour = as.numeric(hours(time)))
 data = bike
 data$year = as.factor(data$year)
 data$month = as.factor(data$month)
@@ -31,7 +41,7 @@ data$day = as.factor(data$day)
 data$hour = as.factor(data$hour)
 #head(data)
 data$work = as.factor(data$is_holiday + data$is_weekend)
-data = subset(data, select=-c(is_holiday, is_weekend))
+data = subset(data, select=-c(is_holiday, is_weekend, date, time))
 head(data)
 ```
 
@@ -40,12 +50,53 @@ head(data)
 lm1 = lm(cnt~. ,data=data)
 par(mfrow=c(2,2))
 plot(lm1, which=c(1,2,3,4))
-vif(lm1)[vif(lm1)>10]
-data = subset(data, select=-c(t1))
+vif(lm1)[vif(lm1)>5]
+print("R^2")
+c(summary(lm1)$r.squared)
+BIC(lm1)
 ```
 This suggests us to remove t1. 
 
+
+## Vanilla Linear Regression
 ```{r}
-res_subset = regsubsets(cnt~. ,data=data, really.big=T)
+reduced_data = subset(data, select=-c(t1, day, month))
+lm_normal = lm(cnt~. ,data=reduced_data)
+par(mfrow=c(2,2))
+plot(lm_normal, which=c(1,2,3,4))
+BIC(lm_normal)
 ```
+
+## 
+We can also try to use BoxCox to transform our data.
+```{r}
+boxFit = lm(cnt~. ,data=reduced_data[-2016,])
+boxcox(boxFit, plotit=T)
+abline(v=0.14)
+```
+The best lambda seem to be roughly 0.14 Therefore, the transforemed response $g_{\lambda}(y) = \frac{y^{(0.14)}-1}{0.14} = 2-2y^{-0.5}$
+```{r}
+transformed = reduced_data[-2016,]
+transformed$cnt = (transformed$cnt^0.14-1)/0.14
+lm_transformed_normal = lm(cnt~. ,data=transformed)
+par(mfrow=c(2,2))
+plot(lm_transformed_normal, which=c(1,2,3,4))
+BIC(lm_transformed_normal)
+```
+The upper tail fits much better after transformation. But the lower tail seemed to be worse. May consider use Logistic regression to separate our data in to two categories.
+
+
+```{r}
+fit0 = glm(cnt~., data=reduced_data, family ="gaussian")
+fit_poi = glm(cnt~., data=reduced_data, family ="poisson")
+fit_gamma_log = glm(cnt~., data=reduced_data[-2016,] , family =Gamma(link="log"))
+#fit_gamma_identity = glm(cnt~., data=reduced_data[-2016,], family =Gamma(link="identity"))
+BIC(fit0)
+BIC(fit_poi)
+BIC(fit_gamma_log)
+```
+It seemed that a fit with Gamma distribution is also good.
+
+To look for best model under the gamma fit and linear fit, may choose forward or backward selection. Subset is almost impossible as we have too many dummy variables, boosting the number of possible models.
+
 
