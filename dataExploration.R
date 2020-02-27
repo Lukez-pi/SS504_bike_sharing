@@ -22,3 +22,15 @@ anova(lm0, lm1)
 
 plot(sbike$hour, sbike$cnt)
 plot(hol_sbike$hour, hol_sbike$cnt)
+
+a <- lm(cnt ~ ., data = bike)
+b <- glm(formula = cnt ~ ., family = "poisson", data = bike)
+
+
+boxCox(lm(cnt ~ t1, data = filter(bike, cnt != 0)))
+boxCox(lm(BigMac ~ FoodIndex, data = mac))
+
+
+######## Plots: we should break up some of these factors
+plot(bike$month,bike$cnt)
+plot(bike$hour,bike$cnt) # group hours 23-0, 1-5, 6-9, 10-15, 16-19, 20-22

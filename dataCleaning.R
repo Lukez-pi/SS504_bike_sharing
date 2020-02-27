@@ -2,6 +2,7 @@ library(dplyr)
 library(tidyr)
 library(stringr)
 library(chron)
+library(car)
 
 bike = read.csv("~/SS504_bike_sharing/london_merged.csv")
 bike = separate(bike, timestamp, into = c("date", "time"), sep=" ")
@@ -33,11 +34,13 @@ bike[,c("weather_code", "season", "is_holiday", "is_weekend",
 # day of week (monday, tuesday)
 #is.sunday
 
+country_1 <- country_1 %>% filter(Ownership.of.dwelling..detailed.version. %!in% c(0,999)) %>% mutate(ownership.1 = ifelse(Ownership.of.dwelling..detailed.version. %in% 100:194, "Owned", ifelse(Ownership.of.dwelling..detailed.version. %in% 210:239, "Rented", "Other ownership status")))
+
 
 # Data splitting
 # set seed to always generate same random numbers
 set.seed(123)
 smp_siz <- floor(0.5*nrow(bike))
 train_ind <- sample(seq_len(nrow(bike)),size = smp_siz)
-train <- Smarket[train_ind,]
-test <- Smarket[-train_ind,]
+train <- bike[train_ind,]
+test <- bike[-train_ind,]
