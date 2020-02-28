@@ -1,0 +1,214 @@
+---
+title: "Project"
+output: html_document
+---
+## Loading data and cleaning
+```{r}
+library(dplyr)
+library(faraway)
+library(leaps)
+library(corrplot)
+library(MASS)
+library(tidyr)
+library(stringr)
+library(chron)
+```
+
+```{r}
+DIRECTORY = "~/Desktop/SS504_bike_sharing/london_merged.csv" # Change this to your file!
+```
+
+```{r}
+bike = read.csv(DIRECTORY)
+bike = separate(bike, timestamp, into = c("date", "time"), sep=" ")
+
+# Convert date/time variables to datetime/chron objects
+bike$date <- as.Date(bike$date)
+bike$time <- chron(times. = bike$time)
+
+# Extract year, month, day, hour from date/time variables
+# Add "day_type" variable: 2 = weekend, 1 = holiday, 0 = workday
+
+# Note: the finest time resolution we have is hour. All minutes/seconds are "00". 
+# If curious, run below:
+# unique(minutes(bike$time))
+# unique(seconds(bike$time))
+bike <- bike %>% mutate(year = as.numeric(format(date, "%Y")), 
+                        month = as.numeric(format(date, "%m")),
+                        day = as.numeric(format(date, "%d")),
+                        hour = as.numeric(hours(time)),
+                        weekday = weekdays(date),
+                        day_type = ifelse(is_holiday + is_weekend == 0, 0, 
+                                          ifelse(is_holiday == 1, 1, 2)),
+                        work = ifelse(is_holiday + is_weekend == 0, 1, 0)) 
+```
+
+```{r}
+# Drop "date", "time", "is_holiday", "is_weekend"
+bike <- select(bike, -c("date", "time", "is_holiday", "is_weekend"))
+
+# Categorical predictors as factors
+colnames(bike)
+bike[, 6:ncol(bike)] <- lapply(bike[, 6:ncol(bike)], factor)
+```
+
+```{r}
+wkd_bike <- filter(bike, day_type == 2)
+hol_bike <- filter(bike, day_type == 1)
+work_bike <- filter(bike, day_type == 0)
+par(mfrow = c(3, 1), mar=c(4, 4, 2, 1))
+plot(hol_bike$hour, hol_bike$cnt, main = "Holiday", xlab = "Hour", ylab = "Count", ylim = c(0, 7600))
+plot(wkd_bike$hour, wkd_bike$cnt, main = "Weekend", xlab = "Hour", ylab = "Count", ylim = c(0, 7600))
+plot(work_bike$hour, work_bike$cnt, main = "Workday", xlab = "Hour", ylab = "Count", ylim = c(0, 7600))
+```
+
+```{r}
+formula1 <- cnt ~ t2 + hum + wind_speed + weather_code + hour + day_type 
+formula2 <- cnt ~ t2 + hum + wind_speed + weather_code + hour + weekday
+
+```
+
+```{r}
+data = bike
+```
+
+## Colinearity
+```{r}
+lm1 = lm(cnt~. ,data=data)
+par(mfrow=c(2,2))
+plot(lm1, which=c(1,2,3,4))
+vif(lm1)[vif(lm1)>5]
+print("R^2")
+c(summary(lm1)$r.squared)
+BIC(lm1)
+```
+This suggests us to remove t1. 
+
+
+## Vanilla Linear Regression
+```{r}
+reduced_data = subset(data, select=-c(t1, day, month, year))
+lm_normal = lm(cnt~. ,data=reduced_data)
+par(mfrow=c(2,2))
+plot(lm_normal, which=c(1,2,3,4))
+BIC(lm_normal)
+```
+
+## 
+We can also try to use BoxCox to transform our data.
+```{r}
+boxFit = lm(cnt~. ,data=reduced_data[-2016,])
+boxcox(boxFit, plotit=T)
+abline(v=0.14)
+```
+The best lambda seem to be roughly 0.14 Therefore, the transforemed response $g_{\lambda}(y) = \frac{y^{(0.14)}-1}{0.14} = 2-2y^{-0.5}$
+```{r}
+transformed = reduced_data[-2016,]
+log_transformed = reduced_data[-2016,]
+log_transformed$cnt = log(log_transformed$cnt) 
+transformed$cnt = (transformed$cnt^0.14-1)/0.14
+lm_transformed_normal = lm(cnt~. ,data=transformed)
+lm_log_normal = lm(cnt~. ,data=log_transformed)
+par(mfrow=c(2,2))
+plot(lm_transformed_normal, which=c(1,2,3,4))
+```
+```{r}
+plot(lm_log_normal, which=c(1,2,3,4))
+BIC(lm_transformed_normal)
+BIC(lm_log_normal)
+```
+
+
+The upper tail fits much better after transformation. But the lower tail seemed to be worse. May consider use Logistic regression to separate our data in to two categories.
+
+We can also review the residuals in the model of log_transformation.
+```{r}
+original_y = exp(lm_log_normal$fitted.values+(summary(lm_log_normal)$sigma)^2/2)
+qqnorm(original_y-reduced_data$cnt)
+```
+
+
+```{r}
+fit0 = glm(cnt~., data=reduced_data, family ="gaussian")
+fit_poi = glm(cnt~., data=reduced_data, family ="poisson")
+fit_gamma_log = glm(cnt~., data=reduced_data[-2016,] , family =Gamma(link="log"))
+#fit_gamma_identity = glm(cnt~., data=reduced_data[-2016,], family =Gamma(link="identity"))
+BIC(fit0)
+BIC(fit_poi)
+BIC(fit_gamma_log)
+```
+It seemed that a fit with Gamma distribution is also good.
+
+To look for best model under the gamma fit and linear fit, may choose forward or backward selection. Subset is almost impossible as we have too many dummy variables, boosting the number of possible models.
+
+### LOOCV for different models
+```{r}
+loocv.lm1 <- function(md1) {
+  return(mean((residuals(md1)/(1-hatvalues(md1)))^2))
+}
+loocv.lm2 <- function(res, hat) {
+  return(mean((res/(1-hat))^2))
+}
+
+loocv.lm1(fit_poi)
+loocv.lm1(fit_gamma_log)
+loocv.lm1(lm_normal)
+loocv.lm2(original_y-reduced_data$cnt, exp(lm_log_normal$fitted.values+(summary(lm_log_normal)$sigma)^2/2))
+
+```
+
+# LOOCV - Gamma
+```{r}
+non_neg_data = reduced_data[-2016,]
+res = 0
+i = 1
+while (i < nrow(non_neg_data)) {
+  curr_fit = glm(cnt~., data=non_neg_data[-c(i:min(i+499, nrow(non_neg_data))),], family=Gamma(link="log")) # Fit model by removing the i-th row.
+  new = non_neg_data[c(i:min(i+499, nrow(non_neg_data))),]
+  res = res + sum((predict(curr_fit, new[-1], se.fit = TRUE)$fit - new$cnt)^2) # Predict the value, compute the squared residual.
+  i = i + 500
+}
+print(res/nrow(non_neg_data))
+```
+
+# LOOCV-Poisson
+```{r}
+res = 0
+i = 1
+while (i < nrow(reduced_data)) {
+  print(i)
+  curr_fit = glm(cnt~., data=reduced_data[-c(i:min(i+499, nrow(reduced_data))),], family="poisson") # Fit model by removing the i-th row.
+  new = reduced_data[c(i:min(i+499, nrow(reduced_data))),]
+  res = res + sum((predict(curr_fit, new[-1], se.fit = TRUE)$fit - new$cnt)^2) # Predict the value, compute the squared residual.
+  i = i + 500
+}
+print(res/nrow(reduced_data))
+```
+```{r}
+res = 0
+i = 1
+while (i < nrow(reduced_data)) {
+  curr_fit = lm(cnt~., data=reduced_data[-c(i:min(i+499, nrow(reduced_data))),]) # Fit model by removing the i-th row.
+  new = reduced_data[c(i:min(i+499, nrow(reduced_data))),]
+  res = res + sum((predict(curr_fit, new[-1], se.fit = TRUE)$fit - new$cnt)^2) # Predict the value, compute the squared residual.
+  i = i + 500
+}
+print(res/nrow(reduced_data))
+```
+
+# LOOCV - LogNormal
+```{r}
+res = 0
+i = 1
+
+temp = reduced_data[-2016,]
+while (i < nrow(reduced_data)) {
+  curr_fit = lm(cnt~., data=log_transformed[-c(i:min(i+499, nrow(log_transformed))),]) # Fit model by removing the i-th row.
+  new = temp[c(i:min(i+499, nrow(temp))),]
+  fitted = predict(curr_fit, new[-1], se.fit = TRUE)$fit
+  res = res + sum((exp(fitted+(summary(curr_fit)$sigma)^2/2) - new$cnt)^2) # Predict the value, compute the squared residual.
+  i = i + 500
+}
+print(res/nrow(reduced_data))
+```
+
