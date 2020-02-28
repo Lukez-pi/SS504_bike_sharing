@@ -12,8 +12,10 @@ library(MASS)
 library(tidyr)
 library(stringr)
 library(chron)
-DIRECTORY = "~/Desktop/SS504_bike_sharing/london_merged.csv" # Change this to your file!
-bike = read.csv(DIRECTORY)
+
+
+DIRECTORY = (dirname(rstudioapi::getActiveDocumentContext()$path))  
+bike = read.csv("london_merged.csv")
 bike = separate(bike, timestamp, into = c("date", "time"), sep=" ")
 
 # Convert date/time variables to datetime/chron objects
