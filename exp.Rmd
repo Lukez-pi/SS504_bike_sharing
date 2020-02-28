@@ -60,7 +60,7 @@ This suggests us to remove t1.
 
 ## Vanilla Linear Regression
 ```{r}
-reduced_data = subset(data, select=-c(t1, day, month))
+reduced_data = subset(data, select=-c(t1, day, month, year))
 lm_normal = lm(cnt~. ,data=reduced_data)
 par(mfrow=c(2,2))
 plot(lm_normal, which=c(1,2,3,4))
@@ -114,4 +114,74 @@ It seemed that a fit with Gamma distribution is also good.
 
 To look for best model under the gamma fit and linear fit, may choose forward or backward selection. Subset is almost impossible as we have too many dummy variables, boosting the number of possible models.
 
+### LOOCV for different models
+```{r}
+loocv.lm1 <- function(md1) {
+  return(mean((residuals(md1)/(1-hatvalues(md1)))^2))
+}
+loocv.lm2 <- function(res, hat) {
+  return(mean((res/(1-hat))^2))
+}
+
+loocv.lm1(fit_poi)
+loocv.lm1(fit_gamma_log)
+loocv.lm1(lm_normal)
+loocv.lm2(original_y-reduced_data$cnt, exp(lm_log_normal$fitted.values+(summary(lm_log_normal)$sigma)^2/2))
+
+```
+
+# LOOCV - Gamma
+```{r}
+non_neg_data = reduced_data[-2016,]
+res = 0
+i = 1
+while (i < nrow(non_neg_data)) {
+  curr_fit = glm(cnt~., data=non_neg_data[-c(i:min(i+499, nrow(non_neg_data))),], family=Gamma(link="log")) # Fit model by removing the i-th row.
+  new = non_neg_data[c(i:min(i+499, nrow(non_neg_data))),]
+  res = res + sum((predict(curr_fit, new[-1], se.fit = TRUE)$fit - new$cnt)^2) # Predict the value, compute the squared residual.
+  i = i + 500
+}
+print(res/nrow(non_neg_data))
+```
+
+# LOOCV-Poisson
+```{r}
+res = 0
+i = 1
+while (i < nrow(reduced_data)) {
+  print(i)
+  curr_fit = glm(cnt~., data=reduced_data[-c(i:min(i+499, nrow(reduced_data))),], family="poisson") # Fit model by removing the i-th row.
+  new = reduced_data[c(i:min(i+499, nrow(reduced_data))),]
+  res = res + sum((predict(curr_fit, new[-1], se.fit = TRUE)$fit - new$cnt)^2) # Predict the value, compute the squared residual.
+  i = i + 500
+}
+print(res/nrow(reduced_data))
+```
+```{r}
+res = 0
+i = 1
+while (i < nrow(reduced_data)) {
+  curr_fit = lm(cnt~., data=reduced_data[-c(i:min(i+499, nrow(reduced_data))),]) # Fit model by removing the i-th row.
+  new = reduced_data[c(i:min(i+499, nrow(reduced_data))),]
+  res = res + sum((predict(curr_fit, new[-1], se.fit = TRUE)$fit - new$cnt)^2) # Predict the value, compute the squared residual.
+  i = i + 500
+}
+print(res/nrow(reduced_data))
+```
+
+# LOOCV - LogNormal
+```{r}
+res = 0
+i = 1
+
+temp = reduced_data[-2016,]
+while (i < nrow(reduced_data)) {
+  curr_fit = lm(cnt~., data=log_transformed[-c(i:min(i+499, nrow(log_transformed))),]) # Fit model by removing the i-th row.
+  new = temp[c(i:min(i+499, nrow(temp))),]
+  fitted = predict(curr_fit, new[-1], se.fit = TRUE)$fit
+  res = res + sum((exp(fitted+(summary(curr_fit)$sigma)^2/2) - new$cnt)^2) # Predict the value, compute the squared residual.
+  i = i + 500
+}
+print(res/nrow(reduced_data))
+```
 
