@@ -4,58 +4,26 @@ output: html_document
 ---
 ## Loading data and cleaning
 ```{r}
-library(dplyr)
 library(faraway)
 library(leaps)
 library(corrplot)
 library(MASS)
-library(tidyr)
-library(stringr)
-library(chron)
+library(ggplot2)
+library(rpart)
+library(rattle)
+library(rpart.plot)
+library(RColorBrewer)
 ```
 
 ```{r}
-DIRECTORY = "~/Desktop/SS504_bike_sharing/london_merged.csv" # Change this to your file!
+source("~/Desktop/SS504_bike_sharing/dataCleaning.R")
 ```
 
 ```{r}
-bike = read.csv(DIRECTORY)
-bike = separate(bike, timestamp, into = c("date", "time"), sep=" ")
-
-# Convert date/time variables to datetime/chron objects
-bike$date <- as.Date(bike$date)
-bike$time <- chron(times. = bike$time)
-
-# Extract year, month, day, hour from date/time variables
-# Add "day_type" variable: 2 = weekend, 1 = holiday, 0 = workday
-
-# Note: the finest time resolution we have is hour. All minutes/seconds are "00". 
-# If curious, run below:
-# unique(minutes(bike$time))
-# unique(seconds(bike$time))
-bike <- bike %>% mutate(year = as.numeric(format(date, "%Y")), 
-                        month = as.numeric(format(date, "%m")),
-                        day = as.numeric(format(date, "%d")),
-                        hour = as.numeric(hours(time)),
-                        weekday = weekdays(date),
-                        day_type = ifelse(is_holiday + is_weekend == 0, 0, 
-                                          ifelse(is_holiday == 1, 1, 2)),
-                        work = ifelse(is_holiday + is_weekend == 0, 1, 0)) 
-```
-
-```{r}
-# Drop "date", "time", "is_holiday", "is_weekend"
-bike <- select(bike, -c("date", "time", "is_holiday", "is_weekend"))
-
-# Categorical predictors as factors
-colnames(bike)
-bike[, 6:ncol(bike)] <- lapply(bike[, 6:ncol(bike)], factor)
-```
-
-```{r}
-wkd_bike <- filter(bike, day_type == 2)
-hol_bike <- filter(bike, day_type == 1)
-work_bike <- filter(bike, day_type == 0)
+# Plot counts per hour on weekend, holiday, workday
+wkd_bike <- filter(bike, is_weekend == 1)
+hol_bike <- filter(bike, is_holiday == 1)
+work_bike <- filter(bike, work == 1)
 par(mfrow = c(3, 1), mar=c(4, 4, 2, 1))
 plot(hol_bike$hour, hol_bike$cnt, main = "Holiday", xlab = "Hour", ylab = "Count", ylim = c(0, 7600))
 plot(wkd_bike$hour, wkd_bike$cnt, main = "Weekend", xlab = "Hour", ylab = "Count", ylim = c(0, 7600))
@@ -63,21 +31,121 @@ plot(work_bike$hour, work_bike$cnt, main = "Workday", xlab = "Hour", ylab = "Cou
 ```
 
 ```{r}
-formula1 <- cnt ~ t2 + hum + wind_speed + weather_code + hour + day_type 
+formula1 <- cnt ~ t1 + t2 + hum + wind_speed + weather_code + is_holiday + is_weekend + season + hour
 formula2 <- cnt ~ t2 + hum + wind_speed + weather_code + hour + weekday
-
+formula3 <- cnt ~ t2 + hum + wind_speed + weather_code + hour
 ```
 
 ```{r}
 data = bike
 ```
 
+```{r}
+# All days
+all <- rpart(cnt ~ hour, data = data)
+#png("decision_hour.png")
+fancyRpartPlot(all)
+#dev.off()
+
+# Weekend
+wkd <- rpart(cnt ~ hour, data = wkd_bike)
+fancyRpartPlot(wkd)
+
+# Holiday
+hol <- rpart(cnt ~ hour, data = hol_bike)
+fancyRpartPlot(hol)
+
+# Work
+work <- rpart(cnt ~ hour, data = work_bike)
+fancyRpartPlot(work)
+
+#wkd/hol
+wkd_hol <- rpart(cnt ~ hour, data = filter(bike, work == 0))
+
+```
+All days:
+G1 (Sleeping): 22, 23, 0 - 6
+G2: 10, 11, 20, 21
+G3: 7, 9 , 12 - 16, 19
+G4 (Peak): 8, 17, 18
+
+Weekend (same if you group weekend and holiday)
+G1: 1 - 7
+G2: 0, 8, 9, 20 - 23
+G3: 10, 11, 18, 19
+G4: 12 - 17
+
+Holiday
+G1: 0-8, 21 - 23
+G2: 9, 10, 19, 20
+G3: 11, 17, 18
+G4: 12 - 16
+
+Workday:
+G1: 0 - 5
+G2: 6, 22, 23
+G3: 10 - 15, 20, 21
+G4: 7, 9, 16, 19
+G5: 17, 18
+G6: 8
+
+Our idea:
+Peak rush: 8, 17 18
+off peak: 7, 9, 16, 19
+midday: 6, 10 - 15, 20, 21
+sleeping: 23, 0-5
+
+```{r}
+hour_data <- data %>% mutate(
+  all_hrs = ifelse(hour %in% c(7, 9 , 12:16, 19), "offpeak", 
+                   ifelse(hour %in% c(22, 23, 0:6), "sleeping",
+                          ifelse(hour %in% c(10, 11, 20, 21), "morn_eve",
+                                 "peak"))),
+  wkdhol_hrs = ifelse(hour %in% c(1:7), "sleeping",
+                   ifelse(hour %in% c(0, 8, 9, 20:23), "off_morn_eve", 
+                          ifelse(hour %in% c(10, 11, 18, 19), "morn_eve",
+                                 "midday"))),
+  hol_hrs = ifelse(hour %in% c(0:8, 21:23), "sleeping", 
+                   ifelse(hour %in% c(9, 10, 19, 20), "off_morn_eve",
+                          ifelse(hour %in% c(11, 17, 18), "morn_eve",
+                                 "midday"))),
+  work_hrs = ifelse(hour %in% c(0:5), "sleeping",
+                    ifelse(hour %in% c(6, 22, 23), "edge",
+                           ifelse(hour %in% c(10:15, 20, 21), "mid_eve",
+                                  ifelse(hour %in% c(7, 9, 16, 19), "off_peak",
+                                         ifelse(hour %in% c(17, 18), "peak1",
+                                                "peak2")))))
+)
+```
+
+Testing lms based on different hour groups
+```{r}
+summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + all_hrs, data = hour_data))
+
+summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + all_hrs + work:all_hrs, data = hour_data))
+
+summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + hour, data = hour_data))
+```
+
+```{r}
+# Scatter plots
+#png("lognumerics.png")
+data %>% mutate(log_cnt = log(cnt)) %>% select(-c(1, 6:ncol(data))) %>%
+  pivot_longer(-log_cnt, values_to = "NumericVariables") %>% 
+  ggplot(aes(x = NumericVariables, y = log_cnt)) +
+    facet_wrap(~ name, scales = "free") +
+    geom_point(alpha = 0.1)
+#dev.off()
+# Numeric variables
+#pairs(data[,1:5])[1]
+```
+
 ## Colinearity
 ```{r}
-lm1 = lm(cnt~. ,data=data)
+lm1 = lm(formula1, data = data)
 par(mfrow=c(2,2))
 plot(lm1, which=c(1,2,3,4))
-vif(lm1)[vif(lm1)>5]
+vif(lm1)
 print("R^2")
 c(summary(lm1)$r.squared)
 BIC(lm1)
@@ -87,7 +155,7 @@ This suggests us to remove t1.
 
 ## Vanilla Linear Regression
 ```{r}
-reduced_data = subset(data, select=-c(t1, day, month, year))
+reduced_data = subset(data, select=-c(t1, day, month, year, weekday, work))
 lm_normal = lm(cnt~. ,data=reduced_data)
 par(mfrow=c(2,2))
 plot(lm_normal, which=c(1,2,3,4))
