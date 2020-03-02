@@ -316,3 +316,11 @@ while (i < nrow(reduced_data)) {
 print(res/nrow(reduced_data))
 ```
 
+# backward/forward selection 
+```{r}
+num_data = nrow(log_transformed)
+lm_log_normal_empty = lm(cnt~1 ,data=log_transformed)
+lm_log_normal_full = lm_log_normal
+fit_backward = step(lm_log_normal_full, direction="backward", k=log(num_data))
+fit_forward = step(lm_log_normal_empty, scope= list(upper=lm_log_normal_full, lower=lm_log_normal_empty), direction="forward", k = log(num_data))
+```
