@@ -10,9 +10,14 @@ library(corrplot)
 library(MASS)
 library(ggplot2)
 library(rpart)
-library(rattle)
-library(rpart.plot)
+library(rattle) #ET: d/l this alter
+library(rpart.plot) #and this
 library(RColorBrewer)
+library(tidyr)
+library(stringr)
+library(chron)
+library(dplyr)
+
 ```
 
 ```{r}
@@ -37,6 +42,7 @@ plot(work_bike$hour, work_bike$cnt, main = "Workday", xlab = "Hour", ylab = "Cou
 ```
 
 ```{r}
+#specify models to try
 formula1 <- cnt ~ t1 + t2 + hum + wind_speed + weather_code + is_holiday + is_weekend + season + hour
 formula2 <- cnt ~ t2 + hum + wind_speed + weather_code + hour + weekday
 formula3 <- cnt ~ t2 + hum + wind_speed + weather_code + hour
@@ -44,6 +50,7 @@ formula3 <- cnt ~ t2 + hum + wind_speed + weather_code + hour
 
 ```{r}
 data = bike
+rm(bike)
 ```
 
 Running decision trees on 1. all 2. weekend 3. holiday 4. workday data
@@ -67,7 +74,7 @@ work <- rpart(cnt ~ hour, data = work_bike)
 #fancyRpartPlot(work)
 
 #wkd/hol
-wkd_hol <- rpart(cnt ~ hour, data = filter(bike, work == 0))
+wkd_hol <- rpart(cnt ~ hour, data = filter(data, work == 0))
 ```
 Here are the hour groupings depending on type of day. I am unsure if there is one grouping that works for both workdays and weekend/holiday.
 
@@ -135,6 +142,7 @@ hour_data <- data %>% mutate(
 ```
 
 Testing lms based on different hour groups
+
 ```{r}
 # Hour grouping with all days
 # Adjusted R-squared: 0.69
@@ -150,10 +158,12 @@ summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + hour, da
 
 # All 24 hours + interaction of work/all 24 hours
 # Adjusted R-squared: 0.90
+#ET this also adds a lot more vars, maybe we should do a bic test too
 summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + hour + work:hour, data = hour_data))
 
 # Hour grouping by eye (most interpretable)
 # Adjusted R-squared: 0.83 (why is this bigger than for all_hrs above?)
+#ET: a little surprising, there is one more var in eye_hours comapred to all_hrs? 
 summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + eye_hrs + work:eye_hrs, data = hour_data))
 ```
 
