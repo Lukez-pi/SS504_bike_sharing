@@ -152,6 +152,10 @@ summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + hour + w
 # Hour grouping by eye (most interpretable)
 # Adjusted R-squared: 0.83 (why is this bigger than for all_hrs above?)
 summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + eye_hrs + work:eye_hrs, data = hour_data))
+
+# Hour grouping by eye (most interpretable) - log transform count
+# Adjusted R-squared: 0.83
+summary(lm(log(cnt) ~ t2 + hum + wind_speed + weather_code + season + work + eye_hrs + work:eye_hrs, data = hour_data))
 ```
 
 Some plots
