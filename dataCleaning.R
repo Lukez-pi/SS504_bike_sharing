@@ -27,6 +27,8 @@ bike[, 8:ncol(bike)] <- lapply(bike[, 8:ncol(bike)], factor)
 
 bike <- select(bike, -c(date, time))
 
+bike <- filter(bike, cnt != 0)
+
 # Data splitting
 set.seed(123)
 smp_siz <- floor(0.5*nrow(bike))
