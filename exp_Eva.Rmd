@@ -10,12 +10,14 @@ library(corrplot)
 library(MASS)
 library(ggplot2)
 library(rpart)
-library(rattle)
-library(rpart.plot)
+library(rattle) #ET: d/l this alter
+library(rpart.plot) #and this
 library(RColorBrewer)
 ```
 
 ```{r}
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))  
+dir=(dirname(rstudioapi::getActiveDocumentContext()$path))
 source("~/Desktop/SS504_bike_sharing/dataCleaning.R")
 ```
 
@@ -23,6 +25,19 @@ source("~/Desktop/SS504_bike_sharing/dataCleaning.R")
 wkd_bike <- filter(bike, is_weekend == 1)
 hol_bike <- filter(bike, is_holiday == 1)
 work_bike <- filter(bike, work == 1)
+wkdorhol_bike<-rbind(wkd_bike,hol_bike)
+```
+
+Plots for presentation
+```{r}
+meanbikes_wkdhol=aggregate(wkdorhol_bike$cnt,list(wkdorhol_bike$hour), mean)
+meanbikes_work=aggregate(work_bike$cnt,list(work_bike$hour), mean)
+png("Bikes_!Work.png")
+barplot(meanbikes_wkdhol$x,names.arg=meanbikes_wkdhol$Group.1, ylab="Avg num of bikes", xlab="Hour", main="Average number of bikes rented by hour, weekend or holiday")
+png("Bikes_Work.png")
+barplot(meanbikes_work$x,names.arg=meanbikes_work$Group.1, ylab="Avg num of bikes", xlab="Hour", main="Average number of bikes rented by hour, workday")
+
+#plot(data$hour, data$`mean(cnt)`, main = "Average rentals by hour", xlab = "Hour", ylab = "Avg Rentals")
 ```
 
 ```{r}
@@ -34,6 +49,7 @@ plot(work_bike$hour, work_bike$cnt, main = "Workday", xlab = "Hour", ylab = "Cou
 ```
 
 ```{r}
+#specify models to try
 formula1 <- cnt ~ t1 + t2 + hum + wind_speed + weather_code + is_holiday + is_weekend + season + hour
 formula2 <- cnt ~ t2 + hum + wind_speed + weather_code + hour + weekday
 formula3 <- cnt ~ t2 + hum + wind_speed + weather_code + hour
@@ -147,15 +163,28 @@ summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + hour, da
 
 # All 24 hours + interaction of work/all 24 hours
 # Adjusted R-squared: 0.90
+#ET this also adds a lot more vars, maybe we should do a bic test too
 summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + hour + work:hour, data = hour_data))
 
 # Hour grouping by eye (most interpretable)
 # Adjusted R-squared: 0.83 (why is this bigger than for all_hrs above?)
+#ET: a little surprising, there is one more var in eye_hours comapred to all_hrs? 
 summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + eye_hrs + work:eye_hrs, data = hour_data))
 
-# Hour grouping by eye (most interpretable) - log transform count
-# Adjusted R-squared: 0.83
-summary(lm(log(cnt) ~ t2 + hum + wind_speed + weather_code + season + work + eye_hrs + work:eye_hrs, data = hour_data))
+#ET: hour grouping using combo all_hours2 var (this requires less var and does about teh same IN terms of adj-R2 as fully work:hour)
+# Adjusted R-squared: 0.89 
+#NOTE: workday_sleeping is excluded category, made other vars in order of effect
+#reorder levels to make it more readible:
+hour_data$all_hrs2<-factor(hour_data$all_hrs2,levels=c("work_sleeping","!work_sleeping","!work_12pm_5pm","!work_8-9am&10pm-12am","work_10am-3pm&10-11pm","!work_12pm-5pm","work_7-9am_and_4-5pm","work_5-6pmrush","work_8amrush"))
+summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + all_hrs2, data = hour_data))
+```
+
+```{r}
+meanbikes_allhours=aggregate(hour_data$cnt,list(hour_data$all_hrs2), mean)
+png("Bikes_allhrs2.png")
+par(mar = c(7, 5, 2, 2) + 4)
+barplot(meanbikes_allhours$x,names.arg=meanbikes_allhours$Group.1, ylab="Avg num of bikes", main="Average number of bikes rented", las=2, space=1)
+
 ```
 
 Some plots
@@ -320,3 +349,11 @@ while (i < nrow(reduced_data)) {
 print(res/nrow(reduced_data))
 ```
 
+# backward/forward selection 
+```{r}
+num_data = nrow(log_transformed)
+lm_log_normal_empty = lm(cnt~1 ,data=log_transformed)
+lm_log_normal_full = lm_log_normal
+fit_backward = step(lm_log_normal_full, direction="backward", k=log(num_data))
+fit_forward = step(lm_log_normal_empty, scope= list(upper=lm_log_normal_full, lower=lm_log_normal_empty), direction="forward", k = log(num_data))
+```
