@@ -16,7 +16,10 @@ library(RColorBrewer)
 ```
 
 ```{r}
-source("~/Desktop/SS504_bike_sharing/dataCleaning.R")
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))  
+dir=(dirname(rstudioapi::getActiveDocumentContext()$path))
+source("dataCleaning.R")
+
 ```
 
 ```{r}

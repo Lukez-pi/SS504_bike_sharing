@@ -4,8 +4,7 @@ library(chron)
 library(dplyr)
 
 # Change this to your file!
-DIRECTORY = "~/Desktop/SS504_bike_sharing/london_merged.csv" 
-bike = read.csv(DIRECTORY)
+bike = read.csv("london_merged.csv")
 
 bike = separate(bike, timestamp, into = c("date", "time"), sep=" ")
 
