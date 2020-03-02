@@ -31,7 +31,9 @@ source("dataCleaning.R")
 wkd_bike <- filter(bike, is_weekend == 1)
 hol_bike <- filter(bike, is_holiday == 1)
 work_bike <- filter(bike, work == 1)
+wkdorhol_bike<-rbind(wkd_bike,hol_bike)
 ```
+
 
 ```{r}
 # Plot counts per hour on weekend, holiday, workday
@@ -40,6 +42,18 @@ plot(hol_bike$hour, hol_bike$cnt, main = "Holiday", xlab = "Hour", ylab = "Count
 plot(wkd_bike$hour, wkd_bike$cnt, main = "Weekend", xlab = "Hour", ylab = "Count", ylim = c(0, 7600))
 plot(work_bike$hour, work_bike$cnt, main = "Workday", xlab = "Hour", ylab = "Count", ylim = c(0, 7600))
 ```
+Plots for presentation
+```{r}
+meanbikes_wkdhol=aggregate(wkdorhol_bike$cnt,list(wkdorhol_bike$hour), mean)
+meanbikes_work=aggregate(work_bike$cnt,list(work_bike$hour), mean)
+png("Bikes_!Work.png")
+barplot(meanbikes_wkdhol$x,names.arg=meanbikes_wkdhol$Group.1, ylab="Avg num of bikes", xlab="Hour", main="Average number of bikes rented by hour, weekend or holiday")
+png("Bikes_Work.png")
+barplot(meanbikes_work$x,names.arg=meanbikes_work$Group.1, ylab="Avg num of bikes", xlab="Hour", main="Average number of bikes rented by hour, workday")
+
+#plot(data$hour, data$`mean(cnt)`, main = "Average rentals by hour", xlab = "Hour", ylab = "Avg Rentals")
+```
+
 
 ```{r}
 #specify models to try
@@ -71,10 +85,13 @@ hol <- rpart(cnt ~ hour, data = hol_bike)
 
 # Work
 work <- rpart(cnt ~ hour, data = work_bike)
-#fancyRpartPlot(work)
+png("decision_workhour.png")
+fancyRpartPlot(work)
 
 #wkd/hol
 wkd_hol <- rpart(cnt ~ hour, data = filter(data, work == 0))
+png("decision_!workhour.png")
+fancyRpartPlot(wkd_hol)
 ```
 Here are the hour groupings depending on type of day. I am unsure if there is one grouping that works for both workdays and weekend/holiday.
 
@@ -119,20 +136,20 @@ hour_data <- data %>% mutate(
                    ifelse(hour %in% c(22, 23, 0:6), "sleeping",
                           ifelse(hour %in% c(10, 11, 20, 21), "morn_eve",
                                  "peak"))),
-  wkdhol_hrs = ifelse(hour %in% c(1:7), "wkdhol_sleeping",
-                   ifelse(hour %in% c(0, 8, 9, 20:23), "wkdhol_8-9am_and_10pm-12am", 
-                          ifelse(hour %in% c(10, 11, 18, 19), "wkdhol_10-11am_and_6-7pm",
-                                 "wkdhol_12pm-5pm"))),
+  wkdhol_hrs = ifelse(hour %in% c(1:7), "!work_sleeping",
+                   ifelse(hour %in% c(0, 8, 9, 20:23), "!work_8-9am&10pm-12am", 
+                          ifelse(hour %in% c(10, 11, 18, 19), "!work_10-11am&6-7pm",
+                                 "!work_12pm-5pm"))),
   hol_hrs = ifelse(hour %in% c(0:8, 21:23), "hol_sleeping", 
                    ifelse(hour %in% c(9, 10, 19, 20), "hol_8-9am_8-9pm",
-                          ifelse(hour %in% c(11, 17, 18), "hol_11am_and_5-6pm",
+                          ifelse(hour %in% c(11, 17, 18), "hol_11am_&_5-6pm",
                                  "hol_midday"))),
-  work_hrs = ifelse(hour %in% c(0:5), "workday_sleeping",
-                    ifelse(hour %in% c(6, 22, 23), "workday_6am_and_10-11pm",
-                           ifelse(hour %in% c(10:15, 20, 21), "workday_10am-3pm_and_10-11pm",
-                                  ifelse(hour %in% c(7, 9, 16, 19), "workday_7-9am_and_4-5pm",
-                                         ifelse(hour %in% c(17, 18), "workday_5-6pm_rushhour",
-                                                "workday_8am_rushhour"))))),
+  work_hrs = ifelse(hour %in% c(0:5), "work_sleeping",
+                    ifelse(hour %in% c(6, 22, 23), "work_6am&10-11pm",
+                           ifelse(hour %in% c(10:15, 20, 21), "work_10am-3pm&10-11pm",
+                                  ifelse(hour %in% c(7, 9, 16, 19), "work_7-9am&4-5pm",
+                                         ifelse(hour %in% c(17, 18), "work_5-6pmrush",
+                                                "work_8amrush"))))),
   eye_hrs = ifelse(hour %in% c(0:6), "sleeping",
                    ifelse(hour %in% c(20:23), "night",
                           ifelse(hour %in% c(10:15), "midday",
@@ -173,12 +190,17 @@ summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + eye_hrs 
 
 #ET: hour grouping using combo all_hours2 var (this requires less var and does about teh same IN terms of adj-R2 as fully work:hour)
 # Adjusted R-squared: 0.89 
+#NOTE: workday_sleeping is excluded category, made other vars in order of effect
+#reorder levels to make it more readible:
+hour_data$all_hrs2<-factor(hour_data$all_hrs2,levels=c("work_sleeping","!work_sleeping","!work_12pm_5pm","!work_8-9am&10pm-12am","work_10am-3pm&10-11pm","!work_12pm-5pm","work_7-9am_and_4-5pm","work_5-6pmrush","work_8amrush"))
 summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + all_hrs2, data = hour_data))
 ```
-
-Some plots
 ```{r}
-plot(temp$hour, temp$`mean(cnt)`, main = "Average rentals by hour", xlab = "Hour", ylab = "Avg Rentals")
+meanbikes_allhours=aggregate(hour_data$cnt,list(hour_data$all_hrs2), mean)
+png("Bikes_allhrs2.png")
+par(mar = c(7, 5, 2, 2) + 4)
+barplot(meanbikes_allhours$x,names.arg=meanbikes_allhours$Group.1, ylab="Avg num of bikes", main="Average number of bikes rented", las=2, space=1)
+
 ```
 
 ```{r}
