@@ -10,15 +10,19 @@ library(corrplot)
 library(MASS)
 library(ggplot2)
 library(rpart)
-library(rattle) #ET: d/l this alter
-library(rpart.plot) #and this
+library(rattle) 
+library(rpart.plot) 
 library(RColorBrewer)
+library(tidyr)
+library(stringr)
+library(chron)
+library(dplyr)
 ```
 
 ```{r}
-setwd(dirname(rstudioapi::getActiveDocumentContext()$path))  
-dir=(dirname(rstudioapi::getActiveDocumentContext()$path))
-source("~/Desktop/SS504_bike_sharing/dataCleaning.R")
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))  #ET keep for ellie
+#setwd(~/Desktop/SS504_bike_sharing)
+source("dataCleaning.R")
 ```
 
 ```{r}
@@ -57,6 +61,7 @@ formula3 <- cnt ~ t2 + hum + wind_speed + weather_code + hour
 
 ```{r}
 data = bike
+rm(bike)
 ```
 
 Running decision trees on 1. all 2. weekend 3. holiday 4. workday data
@@ -77,10 +82,13 @@ hol <- rpart(cnt ~ hour, data = hol_bike)
 
 # Work
 work <- rpart(cnt ~ hour, data = work_bike)
+#png("decision_workhour.png")
 #fancyRpartPlot(work)
 
 #wkd/hol
-wkd_hol <- rpart(cnt ~ hour, data = filter(bike, work == 0))
+wkd_hol <- rpart(cnt ~ hour, data = filter(data, work == 0))
+#png("decision_!workhour.png")
+#fancyRpartPlot(wkd_hol)
 ```
 Here are the hour groupings depending on type of day. I am unsure if there is one grouping that works for both workdays and weekend/holiday.
 
@@ -125,26 +133,28 @@ hour_data <- data %>% mutate(
                    ifelse(hour %in% c(22, 23, 0:6), "sleeping",
                           ifelse(hour %in% c(10, 11, 20, 21), "morn_eve",
                                  "peak"))),
-  wkdhol_hrs = ifelse(hour %in% c(1:7), "sleeping",
-                   ifelse(hour %in% c(0, 8, 9, 20:23), "off_morn_eve", 
-                          ifelse(hour %in% c(10, 11, 18, 19), "morn_eve",
-                                 "midday"))),
-  hol_hrs = ifelse(hour %in% c(0:8, 21:23), "sleeping", 
-                   ifelse(hour %in% c(9, 10, 19, 20), "off_morn_eve",
-                          ifelse(hour %in% c(11, 17, 18), "morn_eve",
-                                 "midday"))),
-  work_hrs = ifelse(hour %in% c(0:5), "sleeping",
-                    ifelse(hour %in% c(6, 22, 23), "edge",
-                           ifelse(hour %in% c(10:15, 20, 21), "mid_eve",
-                                  ifelse(hour %in% c(7, 9, 16, 19), "off_peak",
-                                         ifelse(hour %in% c(17, 18), "peak1",
-                                                "peak2"))))),
+  wkdhol_hrs = ifelse(hour %in% c(1:7), "!work_sleeping",
+                   ifelse(hour %in% c(0, 8, 9, 20:23), "!work_8-9am&10pm-12am", 
+                          ifelse(hour %in% c(10, 11, 18, 19), "!work_10-11am&6-7pm",
+                                 "!work_12pm-5pm"))),
+  hol_hrs = ifelse(hour %in% c(0:8, 21:23), "hol_sleeping", 
+                   ifelse(hour %in% c(9, 10, 19, 20), "hol_8-9am_8-9pm",
+                          ifelse(hour %in% c(11, 17, 18), "hol_11am_&_5-6pm",
+                                 "hol_midday"))),
+  work_hrs = ifelse(hour %in% c(0:5), "work_sleeping",
+                    ifelse(hour %in% c(6, 22, 23), "work_6am&10-11pm",
+                           ifelse(hour %in% c(10:15, 20, 21), "work_10am-3pm&10-11pm",
+                                  ifelse(hour %in% c(7, 9, 16, 19), "work_7-9am&4-5pm",
+                                         ifelse(hour %in% c(17, 18), "work_5-6pmrush",
+                                                "work_8amrush"))))),
   eye_hrs = ifelse(hour %in% c(0:6), "sleeping",
                    ifelse(hour %in% c(20:23), "night",
                           ifelse(hour %in% c(10:15), "midday",
                                  ifelse(hour %in% c(7, 9, 16, 19), "off_peak", 
-                                        "peak"))))
-)
+                                        "peak")))),
+#ET: combine work hrs & wkdhol into one group :
+    all_hrs2= ifelse(work%in% c(1), work_hrs, wkdhol_hrs)
+    )
 ```
 
 Testing lms based on different hour groups
@@ -175,7 +185,7 @@ summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + eye_hrs 
 # Adjusted R-squared: 0.89 
 #NOTE: workday_sleeping is excluded category, made other vars in order of effect
 #reorder levels to make it more readible:
-hour_data$all_hrs2<-factor(hour_data$all_hrs2,levels=c("work_sleeping","!work_sleeping","!work_12pm_5pm","!work_8-9am&10pm-12am","work_10am-3pm&10-11pm","!work_12pm-5pm","work_7-9am_and_4-5pm","work_5-6pmrush","work_8amrush"))
+hour_data$all_hrs2<-factor(hour_data$all_hrs2,levels=c("work_sleeping","!work_sleeping","!work_12pm_5pm","!work_8-9am&10pm-12am","work_10am-3pm&10-11pm","!work_12pm-5pm","work_7-9am&4-5pm","work_5-6pmrush","work_8amrush"))
 summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + all_hrs2, data = hour_data))
 ```
 
