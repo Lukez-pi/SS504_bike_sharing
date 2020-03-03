@@ -36,3 +36,16 @@ smp_siz <- floor(0.5*nrow(bike))
 train_ind <- sample(seq_len(nrow(bike)),size = smp_siz)
 train <- bike[train_ind,]
 test <- bike[-train_ind,]
+
+
+
+wkd_bike <- filter(bike, is_weekend == 1)
+hol_bike <- filter(bike, is_holiday == 1)
+work_bike <- filter(bike, work == 1)
+wkdorhol_bike<-rbind(wkd_bike,hol_bike)
+
+
+data = bike
+rm(bike)
+
+
