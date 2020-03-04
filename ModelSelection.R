@@ -1,11 +1,6 @@
----
-  title: "Project"
-output: html_document
----
+
   
-  
-### LOOCV for different models
-```{r}
+### LOOCV for different models----
 loocv.lm1 <- function(md1) {
   return(mean((residuals(md1)/(1-hatvalues(md1)))^2))
 }
@@ -18,10 +13,9 @@ loocv.lm1(fit_gamma_log)
 loocv.lm1(lm_normal)
 loocv.lm2(original_y-reduced_data$cnt, exp(lm_log_normal$fitted.values+(summary(lm_log_normal)$sigma)^2/2))
 
-```
 
-# LOOCV - Gamma
-```{r}
+
+# LOOCV - Gamma----
 non_neg_data = reduced_data[-2016,]
 res = 0
 i = 1
@@ -32,10 +26,9 @@ while (i < nrow(non_neg_data)) {
   i = i + 500
 }
 print(res/nrow(non_neg_data))
-```
 
-# LOOCV-Poisson
-```{r}
+
+# LOOCV-Poisson----
 res = 0
 i = 1
 while (i < nrow(reduced_data)) {
@@ -46,8 +39,7 @@ while (i < nrow(reduced_data)) {
   i = i + 500
 }
 print(res/nrow(reduced_data))
-```
-```{r}
+
 res = 0
 i = 1
 while (i < nrow(reduced_data)) {
@@ -57,10 +49,10 @@ while (i < nrow(reduced_data)) {
   i = i + 500
 }
 print(res/nrow(reduced_data))
-```
 
-# LOOCV - LogNormal
-```{r}
+
+
+# LOOCV - LogNormal----
 res = 0
 i = 1
 
@@ -73,13 +65,22 @@ while (i < nrow(reduced_data)) {
   i = i + 500
 }
 print(res/nrow(reduced_data))
-```
 
-# backward/forward selection 
-```{r}
-num_data = nrow(log_transformed)
-lm_log_normal_empty = lm(cnt~1 ,data=log_transformed)
-lm_log_normal_full = lm_log_normal
-fit_backward = step(lm_log_normal_full, direction="backward", k=log(num_data))
-fit_forward = step(lm_log_normal_empty, scope= list(upper=lm_log_normal_full, lower=lm_log_normal_empty), direction="forward", k = log(num_data))
-```
+
+# backward/forward selection ----
+forward_backward_selection <- function(dataset, model) {
+  num_data = nrow(dataset)
+  model_empty = lm(cnt~1 ,data=dataset)
+  model_full = model
+  fit_backward = step(model_full, direction="backward", k=log(num_data))
+  fit_forward = step(model_empty, scope= list(upper=model_full, lower=model_empty), direction="forward", k = log(num_data))
+  result_list = list(forward = fit_forward, backward = fit_backward)
+  return(result_list)
+}
+
+model_1 = lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + eye_hrs + work:eye_hrs, data = hour_data)
+forward_backward_selection(hour_data, model_1)
+hour_data = filter(hour_data, cnt != 0)
+model_2 = lm(log(cnt) ~ t2 + hum + wind_speed + weather_code + season + work + eye_hrs + work:eye_hrs, data = hour_data)
+forward_backward_selection(hour_data, model_2)
+

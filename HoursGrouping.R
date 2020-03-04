@@ -1,8 +1,3 @@
----
-  title: "Project"
-output: html_document
----
-
 library(faraway)
 library(leaps)
 library(corrplot)
@@ -17,15 +12,14 @@ library(stringr)
 library(chron)
 library(dplyr)
 
-```{r}
+
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))  #ET keep for ellie
 #setwd(~/Desktop/SS504_bike_sharing)
 source("dataCleaning.R")
-```
 
 
-Plots for presentation
-```{r}
+
+# Plots for presentation
 meanbikes_wkdhol=aggregate(wkdorhol_bike$cnt,list(wkdorhol_bike$hour), mean)
 meanbikes_work=aggregate(work_bike$cnt,list(work_bike$hour), mean)
 png("Bikes_!Work.png")
@@ -34,19 +28,16 @@ png("Bikes_Work.png")
 barplot(meanbikes_work$x,names.arg=meanbikes_work$Group.1, ylab="Avg num of bikes", xlab="Hour", main="Average number of bikes rented by hour, workday")
 
 #plot(data$hour, data$`mean(cnt)`, main = "Average rentals by hour", xlab = "Hour", ylab = "Avg Rentals")
-```
 
-```{r}
-# Plot counts per hour on weekend, holiday, workday
+
+# Plot counts per hour on weekend, holiday, workday----
 par(mfrow = c(3, 1), mar=c(4, 4, 2, 1))
 plot(hol_bike$hour, hol_bike$cnt, main = "Holiday", xlab = "Hour", ylab = "Count", ylim = c(0, 7600))
 plot(wkd_bike$hour, wkd_bike$cnt, main = "Weekend", xlab = "Hour", ylab = "Count", ylim = c(0, 7600))
 plot(work_bike$hour, work_bike$cnt, main = "Workday", xlab = "Hour", ylab = "Count", ylim = c(0, 7600))
-```
 
 
-Running decision trees on 1. all 2. weekend 3. holiday 4. workday data
-```{r}
+# Running decision trees on 1. all 2. weekend 3. holiday 4. workday data
 # All days
 all <- rpart(cnt ~ hour, data = data)
 #png("decision_hour.png")
@@ -70,44 +61,46 @@ work <- rpart(cnt ~ hour, data = work_bike)
 wkd_hol <- rpart(cnt ~ hour, data = filter(data, work == 0))
 #png("decision_!workhour.png")
 #fancyRpartPlot(wkd_hol)
-```
-Here are the hour groupings depending on type of day. I am unsure if there is one grouping that works for both workdays and weekend/holiday.
-
-All days:
-  G1 (Sleeping): 22, 23, 0 - 6
-G2: 10, 11, 20, 21
-G3: 7, 9 , 12 - 16, 19
-G4 (Peak): 8, 17, 18
-
-Weekend (same if you group weekend and holiday)
-G1: 1 - 7
-G2: 0, 8, 9, 20 - 23
-G3: 10, 11, 18, 19
-G4: 12 - 17
-
-Holiday
-G1: 0-8, 21 - 23
-G2: 9, 10, 19, 20
-G3: 11, 17, 18
-G4: 12 - 16
-
-Workday:
-  G1: 0 - 5
-G2: 6, 22, 23
-G3: 10 - 15, 20, 21
-G4: 7, 9, 16, 19
-G5: 17, 18
-G6: 8
-
-Our groups by eye:
-  Peak rush: 8, 17, 18
-off peak: 7, 9, 16, 19
-midday: 10:15
-Night: 20:23
-sleeping: 0-6
 
 
-# Here I'm making hour_group variables for each day type. We shouldn't run the model on the full data since there's redundant information in these columns
+# Here are the hour groupings depending on type of day. I am unsure if there is one grouping that works for both workdays and weekend/holiday.----
+
+# All days:
+#   G1 (Sleeping): 22, 23, 0 - 6
+# G2: 10, 11, 20, 21
+# G3: 7, 9 , 12 - 16, 19
+# G4 (Peak): 8, 17, 18
+# 
+# Weekend (same if you group weekend and holiday)
+# G1: 1 - 7
+# G2: 0, 8, 9, 20 - 23
+# G3: 10, 11, 18, 19
+# G4: 12 - 17
+# 
+# Holiday
+# G1: 0-8, 21 - 23
+# G2: 9, 10, 19, 20
+# G3: 11, 17, 18
+# G4: 12 - 16
+# 
+# Workday:
+#   G1: 0 - 5
+# G2: 6, 22, 23
+# G3: 10 - 15, 20, 21
+# G4: 7, 9, 16, 19
+# G5: 17, 18
+# G6: 8
+# 
+# Our groups by eye:
+#   Peak rush: 8, 17, 18
+# off peak: 7, 9, 16, 19
+# midday: 10:15
+# Night: 20:23
+# sleeping: 0-6
+
+
+
+# Here I'm making hour_group variables for each day type. We shouldn't run the model on the full data since there's redundant information in these columns----
 
 hour_data <- data %>% mutate(
   all_hrs = ifelse(hour %in% c(7, 9 , 12:16, 19), "off_peak", 
@@ -135,7 +128,7 @@ hour_data <- data %>% mutate(
                                         "peak")))),
  )
 
-#combine wkdhol_hrs & work_hrs into one var
+#combine wkdhol_hrs & work_hrs into one var----
 
 hour_data$all_hrs2<-hour_data$work_hrs
 hour_data$all_hrs2[hour_data$work==1]<-hour_data$wkdhol_hrs[hour_data$work==1]
@@ -145,7 +138,7 @@ unique(hour_data$all_hrs2)
 unique(hour_data$season)
 #season is also now consistent... 0-3 coding!
 
-Testing lms based on different hour groups
+#Testing lms based on different hour groups
 
 # Hour grouping with all days
 # Adjusted R-squared: 0.69
@@ -174,10 +167,11 @@ summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + eye_hrs 
 #NOTE: workday_sleeping is excluded category, made other vars in order of effect
 #reorder levels to make it more readible:
 #this isnt working so comment out
-hour_data$all_hrs2<-factor(hour_data$all_hrs2,levels=c("work_sleeping","!work_sleeping","work_6am&10-11pm","!work_12pm-5pm","!work_8-9am&10pm-12am",
-                                                       "work_10am-3pm&10-11pm","!work_12pm-5pm","work_7-9am&4-5pm","work_5-6pmrush",
-                                                       "work_8amrush"))
-summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + factor(all_hrs2), data = hour_data))
+
+# hour_data$all_hrs2<-factor(hour_data$all_hrs2,levels=c("work_sleeping","!work_sleeping","work_6am&10-11pm","!work_12pm-5pm","!work_8-9am&10pm-12am",
+#                                                        "work_10am-3pm&10-11pm","!work_12pm-5pm","work_7-9am&4-5pm","work_5-6pmrush",
+#                                                        "work_8amrush"))
+# summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + factor(all_hrs2), data = hour_data))
 
 
 unique(hour_data$all_hrs2)
@@ -191,3 +185,4 @@ png("Bikes_allhrs2.png")
 par(mar = c(7, 5, 2, 2) + 4)
 barplot(meanbikes_allhours$x, names.arg=meanbikes_allhours$Group.1, ylab="Avg num of bikes", main="Average number of bikes rented", las=2, space=1)
 dev.off()
+
