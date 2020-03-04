@@ -50,18 +50,34 @@ BIC(lm1)
 corrplot(cor(select(data, t1, t2, hum, wind_speed)))
 #dev.off()
 
+#IGNORE ALL THIS, NOT USING IT YET
 library(dummies)
 data_dummies<-dummy.data.frame(data,names=c("season","weather_code"),sep="_") 
 #error message, check to make sure this worked
 unique(data$season) #season coding is 1-4; not 0-3 (need to determine which code is correct)
 unique(data$weather_code)#weather_94 not in dataset
+
 #rename vars
 test<-select(data_dummies,season_1,season_2,season_3,season_4)
-test <- rename(test, season_1="Summer", season_2="Fall",season_3="Winter")
+test <- rename(test, "Spring"=season_1, "Summer"=season_2,"Fall"=season_3, "winter"=season_4)
+data_dummies<-select(data_dummies, work, hum, is_weekend,is_holiday,cnt,work,t1, 
+                                  hour, season_1,season_2,season_3,season_4, 
+                                  weather_code_1, weather_code_2,weather_code_3,weather_code_4,weather_code_7,weather_code_10,weather_code_26)
 
-#mydata <- rename(data_dummies, c(hum="Humidity", work="Workday", is_holiday="is_holiday", is_weekend="is_weekend",t1="Temperature", t2="Feels like", year="Year",month="Month",day="Day",hour="Hour",weekday="Weekday",work="Work",count="Bikes",weather_code_1="Clear", weather_code_2="Few Clouds", weather_code_3="Broken Clouds", weather_code_4="Cloudy", weather_code_7="Rain", weather_code_10="Thuderstorm", weather_code_26="Snow",season_4="Spring??", season_1="Summer", season_2="Fall",season_3="Winter"))
+lm(cnt~t1,as.numeric(season_1),data=data_dummies)
+lm(cnt~t1,as.numeric(season_2),data=data_dummies)
+
+
+corrplot(cor(select(data_dummies, t1, t2, hum, wind_speed, weather_code_1,weather_code_2,weather_code_3,weather_code_4,weather_code_7,weather_code_10,weather_code_26 )))
 png("Corr_allvars.png")
-corrplot(cor(select(data_dummies, t1, t2, hum, wind_speed, weather_code_1,weather_code_2,weather_code_3,weather_code_4,weather_code_7,weather_code_10,weather_code_26, season_1,season_2,season_3, season_4)))
+
+
+data_dummies <- rename(data_dummies, "Work"=work, "is_weekend"=is_weekend,"is_holiday"=is_holiday,"BikeCount"=cnt,"Temperature"=t1,
+                                       "Hour"=hour,"Spring"=season_1, "Summer"=season_2,"Fall"=season_3, "winter"=season_4,
+                                       "Clear"=weather_code_1, "FewClouds"=weather_code_2, "Broken Clouds"=weather_code_3,
+                                       "Cloudy"=weather_code_4, "Rain"=weather_code_7, "Thuderstorm"=weather_code_10, "Snow"=weather_code_26) 
+
+
 
 #This suggests us to remove t1. 
 

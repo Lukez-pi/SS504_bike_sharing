@@ -106,7 +106,7 @@ midday: 10:15
 Night: 20:23
 sleeping: 0-6
 
-```{r}
+
 # Here I'm making hour_group variables for each day type. We shouldn't run the model on the full data since there's redundant information in these columns
 
 hour_data <- data %>% mutate(
@@ -135,71 +135,21 @@ hour_data <- data %>% mutate(
                                         "peak")))),
  )
 
+#combine wkdhol_hrs & work_hrs into one var
 
-#this doesnt work, use wilson's code instead
-#hour_data <- data %>% mutate(
-#  all_hrs2 = ifelse(work %in% c(1), wkdhol_hrs, work_hrs,
-#                   )
-                   
+hour_data$all_hrs2<-hour_data$work_hrs
+hour_data$all_hrs2[hour_data$work==1]<-hour_data$wkdhol_hrs[hour_data$work==1]
+unique(hour_data$all_hrs2)
+#10 cat. yahoo!!
 
-all_hrs2 = c()
-for(i in 1:nrow(hour_data)) {
-  h = hour_data[i, ]$hour
-  w = hour_data[i, ]$work
-  g1 = c(0,1,2,3,4,5)
-  g2 = c(6,22,23)
-  g3 = c(10,11,12,13,14,15,20,21)
-  g4 = c(7,9,16,19)
-  g5 = c(8)
-  g6 = c(17,18)
-  g7 = c(1,2,3,4,5,6,7)
-  g8 = c(0,8,9,20,21,22,23)
-  g9 = c(10,11,18,19)
-  g10 = c(12,13,14,15,16,17)
-  tmp = 0
-  if (w == 1) {
-    if (h %in% g1) {
-      tmp = 1
-    } else if (h %in% g2) {
-      tmp = 2
-    } else if (h %in% g3) {
-      tmp = 3
-    } else if (h %in% g4) {
-      tmp = 4
-    }else if (h %in% g5) {
-      tmp = 5
-    }else if (h %in% g6) {
-      tmp = 6
-    }
-  }else{
-    if (h %in% g7) {
-      tmp = 7
-    } else if (h %in% g8) {
-      tmp = 8
-    } else if (h %in% g9) {
-      tmp = 9
-    } else if (h %in% g10) {
-      tmp = 10
-    }
-  }
-  all_hrs2 = c(all_hrs2, tmp)
-}
-
-
-hour_data$all_hrs2<-all_hrs2
-
-  unique(hour_data$all_hrs2)
-  
-  unique(hour_data$work_hrs)
-  
-
-
-```
-unique(hour_data$wkdhol_hrs)
-unique(hour_data$work_hrs)
+unique(hour_data$season)
+#season is also now consistent... 0-3 coding!
 
 Testing lms based on different hour groups
 ```{r}
+
+
+
 # Hour grouping with all days
 # Adjusted R-squared: 0.69
 summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + all_hrs, data = hour_data))
