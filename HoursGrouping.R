@@ -146,9 +146,6 @@ unique(hour_data$season)
 #season is also now consistent... 0-3 coding!
 
 Testing lms based on different hour groups
-```{r}
-
-
 
 # Hour grouping with all days
 # Adjusted R-squared: 0.69
@@ -176,18 +173,21 @@ summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + work + eye_hrs 
 # Adjusted R-squared: 0.89 
 #NOTE: workday_sleeping is excluded category, made other vars in order of effect
 #reorder levels to make it more readible:
-hour_data$all_hrs2<-factor(hour_data$all_hrs2,levels=c("work_sleeping","!work_sleeping","!work_12pm_5pm","!work_8-9am&10pm-12am","work_10am-3pm&10-11pm","!work_12pm-5pm","work_7-9am&4-5pm","work_5-6pmrush","work_8amrush"))
-summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + all_hrs2, data = hour_data))
-```
+#this isnt working so comment out
+hour_data$all_hrs2<-factor(hour_data$all_hrs2,levels=c("work_sleeping","!work_sleeping","work_6am&10-11pm","!work_12pm-5pm","!work_8-9am&10pm-12am",
+                                                       "work_10am-3pm&10-11pm","!work_12pm-5pm","work_7-9am&4-5pm","work_5-6pmrush",
+                                                       "work_8amrush"))
+summary(lm(cnt ~ t2 + hum + wind_speed + weather_code + season + factor(all_hrs2), data = hour_data))
+
 
 unique(hour_data$all_hrs2)
 #Chosen best model from tests above:
 besthourslm<-lm(cnt ~ t2 + hum + wind_speed + weather_code + season + all_hrs2, data = hour_data)
 
-```{r}
+
 #Plot of hour groupings
 meanbikes_allhours=aggregate(hour_data$cnt,list(hour_data$all_hrs2), mean)
 png("Bikes_allhrs2.png")
 par(mar = c(7, 5, 2, 2) + 4)
-barplot(meanbikes_allhours$x,names.arg=meanbikes_allhours$Group.1, ylab="Avg num of bikes", main="Average number of bikes rented", las=2, space=1)
-```
+barplot(meanbikes_allhours$x, names.arg=meanbikes_allhours$Group.1, ylab="Avg num of bikes", main="Average number of bikes rented", las=2, space=1)
+dev.off()
